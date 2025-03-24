@@ -7,7 +7,7 @@ if ! grep -Eq "(^|[[:space:]])non-free($|[[:space:]])" /etc/apt/sources.list; th
 fi
 # Prerequisite
 sudo apt update
-sudo apt install -y linux-headers-$(uname -r) pkg-config build-essential curl wget libglvnd-dev awk
+sudo apt install -y linux-headers-$(uname -r) pkg-config build-essential curl wget libglvnd-dev nvidia-detect
 
 # Variables
 ver=""
@@ -26,6 +26,7 @@ getVer() {
     echo "1. Latest ($latest)"
     echo "2. Recommended ($recommended)"
     echo "3. Other"
+    echo "4. Install Supergfxctl"
     read -p "Option: " ver_opt
     case "$ver_opt" in
         1)
@@ -37,6 +38,9 @@ getVer() {
         3)
             echo "Enter version:"
             read -p "Version (e.g., 525.78.01): " ver
+            ;;
+        4)
+            installSupergfxctl
             ;;
         *)
             echo "Invalid option. Exiting."
@@ -66,38 +70,35 @@ installNvidiaDriver() {
 }
 
 installSupergfxctl() {
-    echo "Installing supergfxctl (For Optimus Laptop)" && sleep 2
-    sudo apt install -y libudev-dev
-
-    # Remove Xorg NVIDIA-only config
-    sudo rm -rf /etc/X11/xorg.conf
-
-    # Install Rust
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source "$HOME/.cargo/env"
-
-    # Clone and install supergfxctl
-    git clone https://gitlab.com/asus-linux/supergfxctl.git
-    cd supergfxctl || exit
-    make && sudo make install
-    cd .. || exit
-
-    sudo systemctl enable supergfxd.service --now
-    sudo usermod -aG users "$USER"
-}
-
-# Main Execution
-clear
-getVer
-downloader "$ver"
-installNvidiaDriver
-
-if xrandr --listproviders | grep -q "Providers: number : 2"; then
-    echo "2 GPUs detected. Possible Optimus Laptop."
+#TODO: Case: 3+ GPU (rare)
+    if xrandr --listproviders | grep -q "Providers: number : 2"; then
+        echo "2 GPUs detected. Possible Optimus Laptop."
+    elif [$(lspci | grep -c "VGA") -eq 2]; then
+        echo "2 GPUs detected. Possible Optimus Laptop."
+    else
+        echo "Cannot detect any GPU"
+    fi
     read -p "Do you want to install supergfxctl? (y/n): " ans
     case "$ans" in
         [yY]*)
-            installSupergfxctl
+            echo "Installing supergfxctl (For Optimus Laptop)" && sleep 2
+            sudo apt install -y libudev-dev
+
+            # Remove Xorg NVIDIA-only config
+            sudo rm -rf /etc/X11/xorg.conf
+
+            # Install Rust
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source "$HOME/.cargo/env"
+
+            # Clone and install supergfxctl
+            git clone https://gitlab.com/asus-linux/supergfxctl.git
+            cd supergfxctl || exit
+            make && sudo make install
+            cd .. || exit
+
+            sudo systemctl enable supergfxd.service --now
+            sudo usermod -aG users "$USER"
             ;;
         [nN]*)
             echo "Supergfxctl installation skipped."
@@ -107,4 +108,11 @@ if xrandr --listproviders | grep -q "Providers: number : 2"; then
             exit 
             ;;
     esac
-fi
+}
+
+# Main Execution
+clear
+getVer
+downloader "$ver"
+installNvidiaDriver
+installSupergfxctl
