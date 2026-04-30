@@ -9,6 +9,10 @@ fi
 sudo apt update
 sudo apt install -y linux-headers-$(uname -r) pkg-config build-essential curl wget libglvnd-dev nvidia-detect
 
+# 32-bit compatability
+sudo apt install -y libc6:i386 libglvnd-dev:i386 pkg-config:i386
+
+
 # Variables
 ver=""
 
@@ -57,7 +61,7 @@ downloader() {
 
 installNvidiaDriver() {
     mkdir -p /home/$USER/tempnvd
-    sudo sh ./*"$ver"*.run --module-signing-secret-key=/home/$USER/tempnvd/nvidia.key --module-signing-public-key=/home/$USER/tempnvd/nvidia.der
+    sudo sh ./*"$ver"*.run --dkms --module-signing-secret-key=/home/$USER/tempnvd/nvidia.key --module-signing-public-key=/home/$USER/tempnvd/nvidia.der
 
     # Enable nvidia-resume.service
     echo "options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp" | sudo tee -a /etc/modprobe.d/nvidia-power-management.conf
